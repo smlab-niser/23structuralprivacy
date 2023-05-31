@@ -16,5 +16,5 @@ In order to replicate our experiments and reproduce the paper's results, you mus
 1. Run ``python experiments.py -n test create --top_k_based --threshold_based ``
 2. Run ``python experiments.py -n LPGNN exec --all``
    All the datasets will be downloaded automatically into ``datasets`` folder, and the results will be stored in ``results`` directory.
-2. Go through ``plot_k_rr.ipynb`` and ``plot_Wandb.ipynb`` notebooks to visualize the results.
+2. Go through ``plot_k_rr.ipynb`` and ``plot_wandb.ipynb`` notebooks to visualize the results.
 
