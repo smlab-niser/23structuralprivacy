@@ -158,7 +158,7 @@ class PrivatizeStructure:
         if self.pick_neighbor=='k_rr':
             self.value_k = delta
 
-        # k:int = 1
+        k:int = 1
 
         if similarity   == 'cosine':
             self.similarity = self.cosine
