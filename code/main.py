@@ -72,7 +72,13 @@ def run(args):
             # train the model
             trainer = from_args(Trainer, args, logger=logger if args.log_mode == LogMode.INDIVIDUAL else None)
             best_metrics = trainer.fit(model, data)
-            
+
+            # attack the model for link prediction
+            attack_metrics = trainer.attack(data)
+            # print("ATTACK METRICS")
+            # print(type(data))
+            # print(attack_metrics)
+
             # process results
             for metric, value in best_metrics.items():
                 run_metrics[metric] = run_metrics.get(metric, []) + [value]
