@@ -103,3 +103,14 @@ def load_dataset(
         data = Normalize(low, high)(data)
 
     return data
+
+
+def get_edge_sets(data):
+    # Takes a pyg data.Data dataset, computes and return
+    # existing_edges = [(idx, idx),...], non_existing_edges = [(idx, idx),...].
+
+    dense_adj = data.adj_t.to_dense()
+    existing_edges = dense_adj.nonzero()
+    non_existing_edges = (dense_adj == 0).nonzero()
+
+    return existing_edges, non_existing_edges

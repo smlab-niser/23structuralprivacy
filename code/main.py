@@ -56,6 +56,15 @@ def run(args):
             logger = WandbLogger(project=args.project_name, config=args, enabled=args.log, group=run_id)
 
         try:
+            non_sp_data = dataset.clone().to(args.device)
+
+            # non-structurally private data
+            non_sp_data = Compose([
+                from_args(FeatureTransform, args),
+                from_args(FeaturePerturbation, args),
+                from_args(LabelPerturbation, args)
+            ])(non_sp_data)
+
             data = dataset.clone().to(args.device)
 
             # preprocess data
@@ -74,7 +83,7 @@ def run(args):
             best_metrics = trainer.fit(model, data)
 
             # attack the model for link prediction
-            attack_metrics = trainer.attack(data)
+            attack_metrics = trainer.attack(data, non_sp_data)
             # print("ATTACK METRICS")
             # print(type(data))
             # print(attack_metrics)

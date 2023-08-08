@@ -3,6 +3,7 @@ import torch
 from torch.optim import SGD, Adam
 from tqdm.auto import tqdm
 from sklearn.metrics import roc_curve, auc
+from datasets import get_edge_sets
 
 class Trainer:
     def __init__(
@@ -72,47 +73,37 @@ class Trainer:
 
     def get_gradient(self, u, v, data):
         # compare prediction of model with perturbed/non-perturbed u
-        # TODO: influence
+        # TODO: implement influence parameter
         influence = 0.001
         features, adj = data.x, data.adj_t
         perturbation = torch.zeros_like(features)
         perturbation[v] = features[v] * influence
         # print(perturbation[v])
-
         grad = (self.model.perturbed_forward(features + perturbation, adj).detach() - \
                self.model.perturbed_forward(features, adj).detach()) / influence
-
         # print(grad)
-
         return grad[u]
 
-    def get_edge_sets(self, data):
-        # TODO: maybe not here
-        # compute and return existing_edges = [(idx, idx),...] and non_existing_edges = [(idx, idx),...]
-        # note, of interest for test data only as far as the attack goes
-
-        dense_adj = data.adj_t.to_dense()
-        existing_edges = dense_adj.nonzero()
-        non_existing_edges = (dense_adj == 0).nonzero()
-
-        return existing_edges, non_existing_edges
-
-    def attack(self, data):
+    def attack(self, data, non_sp_data):
         # TODO: Need to move data to device?
         # TODO: (same but with the original data)
         # TODO: for each pari of nodes, compute influence, e.g., gradients
 
+        dense = data.adj_t.to_dense()
+        other_dense = non_sp_data.adj_t.to_dense()
+        diff = torch.sum(torch.abs(dense - other_dense))
+        print(f"Comparing datasets. The two adjacency matrices have {diff} different entries")
+
         norm_existing = []
         norm_non_existing = []
 
-        existing_edges, non_existing_edges = self.get_edge_sets(data)
+        existing_edges, non_existing_edges = get_edge_sets(data)
+        non_sp_existing_edges, non_sp_non_existing_edges = get_edge_sets(non_sp_data)
 
+        # prediction on perturbed data
         for u, v in tqdm(existing_edges[:1000]):
             grad = self.get_gradient(u, v, data)
             norm_existing.append(grad.norm().item())
-
-        # print(norm_existing)
-
         for u, v in tqdm(non_existing_edges[:1000]):
             grad = self.get_gradient(u, v, data)
             norm_non_existing.append(grad.norm().item())
@@ -121,7 +112,28 @@ class Trainer:
         pred = norm_existing + norm_non_existing
 
         fpr, tpr, thresholds = roc_curve(y, pred)
-        print('auc =', auc(fpr, tpr))
+        print()
+        print('Perturbed auc =', auc(fpr, tpr))
+        print()
+
+        norm_existing = []
+        norm_non_existing = []
+
+        # prediction wrt original data
+        for u, v in tqdm(non_sp_existing_edges):
+            grad = self.get_gradient(u, v, data)
+            norm_existing.append(grad.norm().item())
+        for u, v in tqdm(non_sp_non_existing_edges[:10000]):
+            grad = self.get_gradient(u, v, data)
+            norm_non_existing.append(grad.norm().item())
+
+        y = [1] * len(norm_existing) + [0] * len(norm_non_existing)
+        pred = norm_existing + norm_non_existing
+
+        fpr, tpr, thresholds = roc_curve(y, pred)
+        print()
+        print('auc wrt original =', auc(fpr, tpr))
+        print()
 
         return 0
 
