@@ -119,11 +119,12 @@ class NodeClassifier(torch.nn.Module):
 
         return p_y_x, p_yp_x, p_yt_x
 
-    def perturbed_forward(self, features, adj_t):
-        # features = self.x_prop(features, adj_t)
+    def perturbed_forward(self, features, adj_t, kprop=False):
+        if kprop:
+            features = self.x_prop(features, adj_t)
         x = self.gnn(features, adj_t)
 
-        return F.log_softmax(x, dim=1)
+        return F.softmax(x, dim=1)
 
 
     def training_step(self, data):

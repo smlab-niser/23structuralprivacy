@@ -3,16 +3,16 @@ import torch
 from torch.optim import SGD, Adam
 from tqdm.auto import tqdm
 from sklearn.metrics import roc_curve, auc
-from datasets import get_edge_sets
+from datasets import get_edge_sets, compare_adjacency_matrices
 
 class Trainer:
     def __init__(
             self,
             optimizer: dict(help='optimization algorithm', choices=['sgd', 'adam']) = 'adam',
-            max_epochs: dict(help='maximum number of training epochs') = 1,
+            max_epochs: dict(help='maximum number of training epochs') = 100,
             learning_rate: dict(help='learning rate') = 0.01,
             weight_decay: dict(help='weight decay (L2 penalty)') = 0.0,
-            patience: dict(help='early-stopping patience window size') = 0,
+            patience: dict(help='early-stopping patience window size') = 5,
             device='cuda',
             logger=None,
     ):
@@ -85,14 +85,10 @@ class Trainer:
         return grad[u]
 
     def attack(self, data, non_sp_data):
-        # TODO: Need to move data to device?
-        # TODO: (same but with the original data)
-        # TODO: for each pari of nodes, compute influence, e.g., gradients
+        # TODO: limit to test data?
+        # perform some comparisons on the two dataset
 
-        dense = data.adj_t.to_dense()
-        other_dense = non_sp_data.adj_t.to_dense()
-        diff = torch.sum(torch.abs(dense - other_dense))
-        print(f"Comparing datasets. The two adjacency matrices have {diff} different entries")
+        # compare_adjacency_matrices(data, non_sp_data)
 
         norm_existing = []
         norm_non_existing = []
@@ -101,41 +97,45 @@ class Trainer:
         non_sp_existing_edges, non_sp_non_existing_edges = get_edge_sets(non_sp_data)
 
         # prediction on perturbed data
-        for u, v in tqdm(existing_edges[:1000]):
-            grad = self.get_gradient(u, v, data)
-            norm_existing.append(grad.norm().item())
-        for u, v in tqdm(non_existing_edges[:1000]):
-            grad = self.get_gradient(u, v, data)
-            norm_non_existing.append(grad.norm().item())
+        with torch.no_grad():
+            for u, v in tqdm(existing_edges[:500]):
+                grad = self.get_gradient(u, v, data)
+                norm_existing.append(grad.norm().item())
+            for u, v in tqdm(non_existing_edges[:500]):
+                grad = self.get_gradient(u, v, data)
+                norm_non_existing.append(grad.norm().item())
 
         y = [1] * len(norm_existing) + [0] * len(norm_non_existing)
         pred = norm_existing + norm_non_existing
 
         fpr, tpr, thresholds = roc_curve(y, pred)
         print()
-        print('Perturbed auc =', auc(fpr, tpr))
+        perturbed_auc = auc(fpr, tpr)
+        print('Perturbed auc =', perturbed_auc)
         print()
 
         norm_existing = []
         norm_non_existing = []
 
         # prediction wrt original data
-        for u, v in tqdm(non_sp_existing_edges):
-            grad = self.get_gradient(u, v, data)
-            norm_existing.append(grad.norm().item())
-        for u, v in tqdm(non_sp_non_existing_edges[:10000]):
-            grad = self.get_gradient(u, v, data)
-            norm_non_existing.append(grad.norm().item())
+        with torch.no_grad():
+            for u, v in tqdm(non_sp_existing_edges[:500]):
+                grad = self.get_gradient(u, v, data)
+                norm_existing.append(grad.norm().item())
+            for u, v in tqdm(non_sp_non_existing_edges[:500]):
+                grad = self.get_gradient(u, v, data)
+                norm_non_existing.append(grad.norm().item())
 
         y = [1] * len(norm_existing) + [0] * len(norm_non_existing)
         pred = norm_existing + norm_non_existing
 
         fpr, tpr, thresholds = roc_curve(y, pred)
         print()
-        print('auc wrt original =', auc(fpr, tpr))
+        wrt_original_auc = auc(fpr, tpr)
+        print('Wrt original auc =', wrt_original_auc)
         print()
 
-        return 0
+        return {"perturbed_auc": perturbed_auc, "original_auc": wrt_original_auc}
 
     def _train(self, data, optimizer):
         self.model.train()

@@ -41,6 +41,7 @@ def run(args):
     dataset = from_args(load_dataset, args)
 
     test_acc = []
+    attack_auc = []
     run_metrics = {}
     run_id = str(uuid.uuid1())
 
@@ -83,7 +84,9 @@ def run(args):
             best_metrics = trainer.fit(model, data)
 
             # attack the model for link prediction
-            attack_metrics = trainer.attack(data, non_sp_data)
+            if args.attack:
+                attack_metrics = trainer.attack(data, non_sp_data)
+                attack_auc.append(attack_metrics)
             # print("ATTACK METRICS")
             # print(type(data))
             # print(attack_metrics)
@@ -114,6 +117,9 @@ def run(args):
     if not args.log:
         os.makedirs(args.output_dir, exist_ok=True)
         df_results = pd.DataFrame(test_acc, columns=['test/acc']).rename_axis('version').reset_index()
+        if args.attack:
+            df_attack = pd.DataFrame(attack_auc)
+            df_results = pd.concat([df_results, df_attack], axis=1)
         df_results['Name'] = run_id
         for arg_name, arg_val in vars(args).items():
             df_results[arg_name] = [arg_val] * len(test_acc)
@@ -152,6 +158,10 @@ def main():
     group_expr.add_argument('--log-mode', type=LogMode, action=EnumAction, default=LogMode.INDIVIDUAL,
                             help='wandb logging mode')
     group_expr.add_argument('--project-name', type=str, default='LPGNN', help='wandb project name')
+
+    # attack arguments
+    group_attack = init_parser.add_argument_group(f'attack arguments')
+    group_attack.add_argument('--attack', type=bool, default=False, help='perform attack')
 
     parser = ArgumentParser(parents=[init_parser], formatter_class=ArgumentDefaultsHelpFormatter)
     args = parser.parse_args()

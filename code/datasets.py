@@ -65,7 +65,6 @@ class KarateClub(InMemoryDataset):
         x = x.reindex(range(num_nodes), fill_value=0)
         x = torch.from_numpy(x.to_numpy()).float()
 
-
         data = Data(x=x, edge_index=edge_index, y=y, num_nodes=num_nodes)
 
         if self.pre_transform is not None:
@@ -86,18 +85,18 @@ supported_datasets = {
 
 
 def load_dataset(
-        dataset:        dict(help='name of the dataset', option='-d', choices=supported_datasets) = 'cora',
-        data_dir:       dict(help='directory to store the dataset') = './datasets',
-        data_range:     dict(help='min and max feature value', nargs=2, type=float) = (0, 1),
-        val_ratio:      dict(help='fraction of nodes used for validation') = .25,
-        test_ratio:     dict(help='fraction of nodes used for test') = .25,
-        ):
+        dataset: dict(help='name of the dataset', option='-d', choices=supported_datasets) = 'cora',
+        data_dir: dict(help='directory to store the dataset') = './datasets',
+        data_range: dict(help='min and max feature value', nargs=2, type=float) = (0, 1),
+        val_ratio: dict(help='fraction of nodes used for validation') = .25,
+        test_ratio: dict(help='fraction of nodes used for test') = .25,
+):
     data = supported_datasets[dataset](root=os.path.join(data_dir, dataset))
     data = RandomNodeSplit(split='train_rest', num_val=val_ratio, num_test=test_ratio)(data[0])
     data = ToSparseTensor()(data)
     data.name = dataset
     data.num_classes = int(data.y.max().item()) + 1
-    
+
     if data_range is not None:
         low, high = data_range
         data = Normalize(low, high)(data)
@@ -114,3 +113,31 @@ def get_edge_sets(data):
     non_existing_edges = (dense_adj == 0).nonzero()
 
     return existing_edges, non_existing_edges
+
+
+def compare_adjacency_matrices(data, non_sp_data):
+    dense = data.adj_t.to_dense()
+    non_sp_dense = non_sp_data.adj_t.to_dense()
+    # print(dense)
+    diff = int(torch.sum(torch.abs(dense - non_sp_dense)))
+    print(f"Comparing datasets: the two adjacency matrices have {diff}/{torch.numel(dense)} different entries.")
+
+    print("Number of edges:")
+    print(f"Perturbed: {torch.sum(dense)} edges, {torch.numel(dense) - torch.sum(dense)} non-edges")
+    print(f"Original: {torch.sum(non_sp_dense)} edges, {torch.numel(non_sp_dense) - torch.sum(non_sp_dense)} non-edges")
+
+    # getting edge lists from data
+    existing_edges, non_existing_edges = get_edge_sets(data)
+    non_sp_existing_edges, non_sp_non_existing_edges = get_edge_sets(non_sp_data)
+
+    # computing list intersections
+    l1 = existing_edges.tolist()
+    l2 = non_sp_existing_edges.tolist()
+    common_edges = len([list(x) for x in set(tuple(x) for x in l1).intersection(set(tuple(x) for x in l2))])
+    l1 = non_existing_edges.tolist()
+    l2 = non_sp_non_existing_edges.tolist()
+    common_non_edges = len([list(x) for x in set(tuple(x) for x in l1).intersection(set(tuple(x) for x in l2))])
+
+    print(f"Common edges: {common_edges}")
+    print(f"Common non-edges: {common_non_edges}")
+
