@@ -115,6 +115,15 @@ def get_edge_sets(data):
     return existing_edges, non_existing_edges
 
 
+def generate_random_edge_sets(data, perc_ones=0.1):
+    dense_adj = data.adj_t.to_dense()
+    dense_adj = (torch.rand(size=dense_adj.size()) < perc_ones).int()
+    existing_edges = dense_adj.nonzero()
+    non_existing_edges = (dense_adj == 0).nonzero()
+
+    return existing_edges, non_existing_edges
+
+
 def compare_adjacency_matrices(data, non_sp_data):
     dense = data.adj_t.to_dense()
     non_sp_dense = non_sp_data.adj_t.to_dense()
@@ -123,8 +132,9 @@ def compare_adjacency_matrices(data, non_sp_data):
     print(f"Comparing datasets: the two adjacency matrices have {diff}/{torch.numel(dense)} different entries.")
 
     print("Number of edges:")
-    print(f"Perturbed: {torch.sum(dense)} edges, {torch.numel(dense) - torch.sum(dense)} non-edges")
-    print(f"Original: {torch.sum(non_sp_dense)} edges, {torch.numel(non_sp_dense) - torch.sum(non_sp_dense)} non-edges")
+    print(f"Perturbed: {int(torch.sum(dense))} edges, {int(torch.numel(dense) - torch.sum(dense))} non-edges")
+    print(
+        f"Original: {int(torch.sum(non_sp_dense))} edges, {int(torch.numel(non_sp_dense) - torch.sum(non_sp_dense))} non-edges")
 
     # getting edge lists from data
     existing_edges, non_existing_edges = get_edge_sets(data)
@@ -140,4 +150,3 @@ def compare_adjacency_matrices(data, non_sp_data):
 
     print(f"Common edges: {common_edges}")
     print(f"Common non-edges: {common_non_edges}")
-
