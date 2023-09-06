@@ -104,13 +104,17 @@ def load_dataset(
     return data
 
 
-def get_edge_sets(data):
+def get_edge_sets(data, random_order=False):
     # Takes a pyg data.Data dataset, computes and return
     # existing_edges = [(idx, idx),...], non_existing_edges = [(idx, idx),...].
 
     dense_adj = data.adj_t.to_dense()
     existing_edges = dense_adj.nonzero()
     non_existing_edges = (dense_adj == 0).nonzero()
+
+    if random_order:
+        existing_edges = existing_edges[torch.randperm(existing_edges.size()[0])]
+        non_existing_edges = non_existing_edges[torch.randperm(existing_edges.size()[0])]
 
     return existing_edges, non_existing_edges
 

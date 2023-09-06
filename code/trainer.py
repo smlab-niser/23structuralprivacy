@@ -88,50 +88,50 @@ class Trainer:
     def attack(self, data, non_sp_data):
         # perform some comparisons on the two dataset
 
-        compare_adjacency_matrices(data, non_sp_data)
+        # compare_adjacency_matrices(data, non_sp_data)
 
         norm_existing = []
         norm_non_existing = []
 
-        existing_edges, non_existing_edges = get_edge_sets(data)
-        non_sp_existing_edges, non_sp_non_existing_edges = get_edge_sets(non_sp_data)
+        existing_edges, non_existing_edges = get_edge_sets(data, random_order=True)
+        non_sp_existing_edges, non_sp_non_existing_edges = get_edge_sets(non_sp_data, random_order=True)
 
-        delimiter = 500
-        # comparing elements
-        list1 = existing_edges[:delimiter]
-        list2 = non_sp_existing_edges[:delimiter]
-        list1 = [tuple(x) for x in list1.tolist()]
-        list2 = [tuple(x) for x in list2.tolist()]
-        elem_intersection = set(list1).intersection(set(list2))
-        print(f"Elements in original: {len(list1)}\nElements in perturbed: {len(list2)}\nElements in common: {len(elem_intersection)}")
-
-        print("--------------------------------------")
-
-        delimiter = -1
-        # comparing elements
-        list1 = existing_edges[:delimiter]
-        list2 = non_sp_existing_edges[:delimiter]
-        list1 = [tuple(x) for x in list1.tolist()]
-        list2 = [tuple(x) for x in list2.tolist()]
-        elem_intersection = set(list1).intersection(set(list2))
-        print(f"Elements in original: {len(list1)}\nElements in perturbed: {len(list2)}\nElements in common: {len(elem_intersection)}")
-
-        print("--------------------------------------")
-        print("--------------------------------------")
-
-        random_existing_edges, random_non_existing_edges = generate_random_edge_sets(non_sp_data, perc_ones=0.0014)
-
-        delimiter = -1
-        # comparing elements
-        list1 = existing_edges[:delimiter]
-        list2 = random_existing_edges[:delimiter]
-        list1 = [tuple(x) for x in list1.tolist()]
-        list2 = [tuple(x) for x in list2.tolist()]
-        elem_intersection = set(list1).intersection(set(list2))
-        print("Random edges.")
-        print(f"Elements in original: {len(list1)}\nElements in perturbed: {len(list2)}\nElements in common: {len(elem_intersection)}")
-        print("--------------------------------------")
-        print("--------------------------------------")
+        # delimiter = 500
+        # # comparing elements
+        # list1 = existing_edges[:delimiter]
+        # list2 = non_sp_existing_edges[:delimiter]
+        # list1 = [tuple(x) for x in list1.tolist()]
+        # list2 = [tuple(x) for x in list2.tolist()]
+        # elem_intersection = set(list1).intersection(set(list2))
+        # print(f"Elements in original: {len(list1)}\nElements in perturbed: {len(list2)}\nElements in common: {len(elem_intersection)}")
+        #
+        # print("--------------------------------------")
+        #
+        # delimiter = -1
+        # # comparing elements
+        # list1 = existing_edges[:delimiter]
+        # list2 = non_sp_existing_edges[:delimiter]
+        # list1 = [tuple(x) for x in list1.tolist()]
+        # list2 = [tuple(x) for x in list2.tolist()]
+        # elem_intersection = set(list1).intersection(set(list2))
+        # print(f"Elements in original: {len(list1)}\nElements in perturbed: {len(list2)}\nElements in common: {len(elem_intersection)}")
+        #
+        # print("--------------------------------------")
+        # print("--------------------------------------")
+        #
+        # random_existing_edges, random_non_existing_edges = generate_random_edge_sets(non_sp_data, perc_ones=0.0014)
+        #
+        # delimiter = -1
+        # # comparing elements
+        # list1 = existing_edges[:delimiter]
+        # list2 = random_existing_edges[:delimiter]
+        # list1 = [tuple(x) for x in list1.tolist()]
+        # list2 = [tuple(x) for x in list2.tolist()]
+        # elem_intersection = set(list1).intersection(set(list2))
+        # print("Random edges.")
+        # print(f"Elements in original: {len(list1)}\nElements in perturbed: {len(list2)}\nElements in common: {len(elem_intersection)}")
+        # print("--------------------------------------")
+        # print("--------------------------------------")
 
         # prediction on perturbed data
         with torch.no_grad():
@@ -173,24 +173,24 @@ class Trainer:
 
 
         # prediction wrt random data
-        norm_existing = []
-        norm_non_existing = []
-        with torch.no_grad():
-            for u, v in tqdm(random_existing_edges[:500]):
-                grad = self.get_gradient(u, v, data)
-                norm_existing.append(grad.norm().item())
-            for u, v in tqdm(random_non_existing_edges[:500]):
-                grad = self.get_gradient(u, v, data)
-                norm_non_existing.append(grad.norm().item())
-
-        y = [1] * len(norm_existing) + [0] * len(norm_non_existing)
-        pred = norm_existing + norm_non_existing
-
-        fpr, tpr, thresholds = roc_curve(y, pred)
-        print()
-        wrt_random_auc = auc(fpr, tpr)
-        print('Wrt random auc =', wrt_random_auc)
-        print()
+        # norm_existing = []
+        # norm_non_existing = []
+        # with torch.no_grad():
+        #     for u, v in tqdm(random_existing_edges[:500]):
+        #         grad = self.get_gradient(u, v, data)
+        #         norm_existing.append(grad.norm().item())
+        #     for u, v in tqdm(random_non_existing_edges[:500]):
+        #         grad = self.get_gradient(u, v, data)
+        #         norm_non_existing.append(grad.norm().item())
+        #
+        # y = [1] * len(norm_existing) + [0] * len(norm_non_existing)
+        # pred = norm_existing + norm_non_existing
+        #
+        # fpr, tpr, thresholds = roc_curve(y, pred)
+        # print()
+        # wrt_random_auc = auc(fpr, tpr)
+        # print('Wrt random auc =', wrt_random_auc)
+        # print()
 
         return {"perturbed_auc": perturbed_auc, "original_auc": wrt_original_auc}
 
