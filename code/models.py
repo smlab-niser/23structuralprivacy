@@ -119,8 +119,16 @@ class NodeClassifier(torch.nn.Module):
 
         return p_y_x, p_yp_x, p_yt_x
 
+    def perturbed_forward(self, features, adj_t, kprop=False):
+        if kprop:
+            features = self.x_prop(features, adj_t)
+        x = self.gnn(features, adj_t)
+
+        return F.softmax(x, dim=1)
+
+
     def training_step(self, data):
-        p_y_x, p_yp_x, p_yt_x = self(data)
+        p_y_x, p_yp_x, p_yt_x = self(data)  # Passing test labels too?
 
         if self.cached_yt is None:
             # print('into if')
@@ -129,7 +137,6 @@ class NodeClassifier(torch.nn.Module):
             self.cached_yt = self.y_prop(yp, data.adj_t)  # y~
             # print('training ',F.one_hot(self.cached_yt.argmax(dim=1)).shape, self.cached_yt.shape)
 
-        
         loss = self.cross_entropy_loss(p_y=p_yt_x[data.train_mask], y=self.cached_yt[data.train_mask], weighted=False)
 
         metrics = {

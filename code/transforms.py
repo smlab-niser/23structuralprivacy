@@ -139,13 +139,13 @@ class FilterTopClass:
 
 class PrivatizeStructure:
     def __init__(self,  e_eps: dict(help='privacy budget for structure perturbation', type=float,
-                                     option='-ee') = np.inf, 
+                                     option='-ee') = np.inf,
                         alpha: dict(help='node feature similarity coefficient', type=float,
-                                     option='-alpha') = 0.5, 
+                                     option='-alpha') = 0.5,
                         delta: dict(help='similarity threshold', type=float,
-                                     option='-delta') = 0, 
+                                     option='-delta') = 0,
                         similarity: dict(help='similarity measure', type=str,
-                                     option='-similarity') = 'cosine', 
+                                     option='-similarity') = 'cosine',
                         pick_neighbor: dict(help='method to select noisy neighbors', type=str,
                                      option='-neigh') = 'rr'
                         ):
@@ -158,7 +158,7 @@ class PrivatizeStructure:
         if self.pick_neighbor=='k_rr':
             self.value_k = delta
 
-        # k:int = 1
+        k:int = 1
 
         if similarity   == 'cosine':
             self.similarity = self.cosine
@@ -178,7 +178,7 @@ class PrivatizeStructure:
     def calculateSimilarity(self, data):
         x = data.x
         xa = self.k_prop(data.x, data.adj_t)
-        
+
         dense_adj = SparseTensor.fill_diag(data.adj_t, 1).to_dense()
         sim = torch.zeros_like(dense_adj)
 
@@ -191,7 +191,7 @@ class PrivatizeStructure:
                 x_sim = self.similarity(x_node, x_u)
                 xa_sim = self.similarity(xa_node, xa_u)
                 s = self.alpha*x_sim + (1-self.alpha)*xa_sim
-            
+
                 if s > self.delta:
                     sim[node, u] = s.item()
 
@@ -210,7 +210,7 @@ class PrivatizeStructure:
             return M[0]
         elif idx == 1:
             return M[-1]
-        
+
 
     def select_with_rr(self, M):
         '''
@@ -228,7 +228,7 @@ class PrivatizeStructure:
 
         dense_adj = data.adj_t.to_dense()
 
-        nodepairs = dense_adj.nonzero() 
+        nodepairs = dense_adj.nonzero()
 
         for node in range(sim.shape[0]): # x
             neighbors = nodepairs[nodepairs[:, 0]==node, 1] # A, B, C
@@ -240,7 +240,7 @@ class PrivatizeStructure:
                     if self.pick_neighbor == 'top':
                         if neighs_of_neighbor.shape[0] - torch.count_nonzero(sim[neighbor, neighs_of_neighbor]) == neighs_of_neighbor.shape[0]:
                             replacement = neighbor
-                        else: 
+                        else:
                             n = neighs_of_neighbor[torch.argmax(sim[neighbor, neighs_of_neighbor])]
                             replacement = self.select_top(torch.stack((n, neighbor)))
                     elif self.pick_neighbor == 'rr':
@@ -265,7 +265,7 @@ class PrivatizeStructure:
                     dense_adj[node, int(replacement)] = 1
         return dense_adj
 
-        
+
     def randomNeighbors(self, data):
         dense_adj = data.adj_t.to_dense()
         nodepairs = dense_adj.nonzero()

@@ -58,7 +58,8 @@ class CommandBuilder:
             self.default_options += f" --log --log-mode collective --project-name {args.project} "
         self.hparams = HyperParams(path_dir=hparams_dir) if hparams_dir else None
 
-    def build(self, dataset, feature, mechanism, model, x_eps, y_eps, e_eps, alpha, delta, similarity, pick_neighbor, forward_correction, x_steps, y_steps, learning_rate, weight_decay, dropout):
+    def build(self, dataset, feature, mechanism, model, x_eps, y_eps, e_eps, alpha, delta, similarity, pick_neighbor, forward_correction, x_steps, y_steps, learning_rate, weight_decay, dropout,
+              attack=False):
 
         cmd_list = []
         configs = self.product_dict(
@@ -79,6 +80,7 @@ class CommandBuilder:
             learning_rate=self.get_list(learning_rate),
             weight_decay=self.get_list(weight_decay),
             dropout=self.get_list(dropout),
+            attack=self.get_list(attack),
         )
 
         if self.random:
@@ -190,6 +192,44 @@ def top_k_experiments(args):
     run_cmds = list(set(run_cmds))  # remove duplicate runs
     return run_cmds
 
+
+def attack_experiments(args):
+    run_cmds = []
+    cmdbuilder = CommandBuilder(args=args, hparams_dir='./hparams')
+    datasets = ['cora', 'pubmed', 'lastfm', 'facebook']
+
+    # best steps from LPGNN
+    steps ={'cora':     [16, 2],
+            'pubmed':   [16, 0],
+            'lastfm':   [16, 0],
+            'facebook': [4, 2]}
+
+    for dataset in datasets:
+        run_cmds += cmdbuilder.build(
+            attack=True,
+            dataset=dataset,
+            feature='raw',
+            mechanism='mbm',
+            model=['gcn', 'gat'],
+            x_eps=[3],
+            x_steps=steps[dataset][0],
+            y_eps=[3],
+            y_steps=steps[dataset][1],
+            e_eps=[0.1, 8, np.inf],
+            alpha=[0, 0.5, 1],
+            delta=[0],
+            similarity=['cosine'],
+            pick_neighbor=['rr'],
+            forward_correction=True,
+            learning_rate=CommandBuilder.BEST_VALUE,
+            weight_decay=CommandBuilder.BEST_VALUE,
+            dropout=CommandBuilder.BEST_VALUE
+        )
+
+    run_cmds = list(set(run_cmds))  # remove duplicate runs
+    return run_cmds
+
+
 def experiment_generator(args):
     run_cmds = []
 
@@ -198,6 +238,9 @@ def experiment_generator(args):
 
     if args.top_k_based:
         run_cmds += top_k_experiments(args)
+
+    if args.attack:
+        run_cmds += attack_experiments(args)
 
     return run_cmds
 
@@ -212,6 +255,7 @@ def main():
     parser_create.add_argument('-r', '--repeats', type=int, default=10, help="number of experiment iterations")
     parser_create.add_argument('--top_k_based', action='store_true')
     parser_create.add_argument('--threshold_based', action='store_true')
+    parser_create.add_argument('--attack', action='store_true')
     args = parser.parse_args()
     print_args(args)
 

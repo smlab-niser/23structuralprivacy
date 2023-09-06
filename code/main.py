@@ -41,6 +41,7 @@ def run(args):
     dataset = from_args(load_dataset, args)
 
     test_acc = []
+    attack_auc = []
     run_metrics = {}
     run_id = str(uuid.uuid1())
 
@@ -56,6 +57,15 @@ def run(args):
             logger = WandbLogger(project=args.project_name, config=args, enabled=args.log, group=run_id)
 
         try:
+            non_sp_data = dataset.clone().to(args.device)
+
+            # non-structurally private data
+            non_sp_data = Compose([
+                from_args(FeatureTransform, args),
+                from_args(FeaturePerturbation, args),
+                from_args(LabelPerturbation, args)
+            ])(non_sp_data)
+
             data = dataset.clone().to(args.device)
 
             # preprocess data
@@ -72,7 +82,15 @@ def run(args):
             # train the model
             trainer = from_args(Trainer, args, logger=logger if args.log_mode == LogMode.INDIVIDUAL else None)
             best_metrics = trainer.fit(model, data)
-            
+
+            # attack the model for link prediction
+            if args.attack:
+                attack_metrics = trainer.attack(data, non_sp_data)
+                attack_auc.append(attack_metrics)
+            # print("ATTACK METRICS")
+            # print(type(data))
+            # print(attack_metrics)
+
             # process results
             for metric, value in best_metrics.items():
                 run_metrics[metric] = run_metrics.get(metric, []) + [value]
@@ -99,6 +117,9 @@ def run(args):
     if not args.log:
         os.makedirs(args.output_dir, exist_ok=True)
         df_results = pd.DataFrame(test_acc, columns=['test/acc']).rename_axis('version').reset_index()
+        if args.attack:
+            df_attack = pd.DataFrame(attack_auc)
+            df_results = pd.concat([df_results, df_attack], axis=1)
         df_results['Name'] = run_id
         for arg_name, arg_val in vars(args).items():
             df_results[arg_name] = [arg_val] * len(test_acc)
@@ -137,6 +158,10 @@ def main():
     group_expr.add_argument('--log-mode', type=LogMode, action=EnumAction, default=LogMode.INDIVIDUAL,
                             help='wandb logging mode')
     group_expr.add_argument('--project-name', type=str, default='LPGNN', help='wandb project name')
+
+    # attack arguments
+    group_attack = init_parser.add_argument_group(f'attack arguments')
+    group_attack.add_argument('--attack', type=bool, default=False, help='perform attack')
 
     parser = ArgumentParser(parents=[init_parser], formatter_class=ArgumentDefaultsHelpFormatter)
     args = parser.parse_args()
