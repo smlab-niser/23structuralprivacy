@@ -85,7 +85,8 @@ def run(args):
 
             # attack the model for link prediction
             if args.attack:
-                attack_metrics = trainer.attack(data, non_sp_data)
+                # attack_metrics = trainer.attack(data, non_sp_data)
+                attack_metrics = trainer.baseline_attack(data, non_sp_data)
                 attack_auc.append(attack_metrics)
             # print("ATTACK METRICS")
             # print(type(data))
