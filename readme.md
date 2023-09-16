@@ -14,7 +14,7 @@ This code is implemented in Python 3.9, and relies on the following packages:
 ### Replicating the paper's results
 In order to replicate our experiments and reproduce the paper's results, you must do the following steps:  
 1. Run ``python experiments.py -n test create --top_k_based --threshold_based ``
-2. Run ``python experiments.py -n LPGNN exec --all``
+2. Run ``python experiments.py -n test exec --all``
    All the datasets will be downloaded automatically into ``datasets`` folder, and the results will be stored in ``results`` directory.
-2. Go through ``plot_k_rr.ipynb`` and ``plot_wandb.ipynb`` notebooks to visualize the results.
+3. Go through ``plot_k_rr.ipynb`` and ``plot_wandb.ipynb`` notebooks to visualize the results.
 

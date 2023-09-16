@@ -147,7 +147,7 @@ def main():
     # trainer arguments (depends on perturbation)
     group_trainer = init_parser.add_argument_group(f'trainer arguments')
     add_parameters_as_argument(Trainer, group_trainer)
-    group_trainer.add_argument('--device', help='desired device for training', choices=['cpu', 'cuda:0', 'cuda:1'], default='cuda:0')
+    group_trainer.add_argument('--device', help='desired device for training', choices=['cpu', 'cuda:0', 'cuda:1', 'cuda:2', 'cuda:3'], default='cuda:0')
 
     # experiment args
     group_expr = init_parser.add_argument_group('experiment arguments')

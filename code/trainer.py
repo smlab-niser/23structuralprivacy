@@ -12,7 +12,7 @@ class Trainer:
             max_epochs: dict(help='maximum number of training epochs') = 100,
             learning_rate: dict(help='learning rate') = 0.01,
             weight_decay: dict(help='weight decay (L2 penalty)') = 0.0,
-            patience: dict(help='early-stopping patience window size') = 5,
+            patience: dict(help='early-stopping patience window size') = 0,
             device='cuda',
             logger=None,
     ):

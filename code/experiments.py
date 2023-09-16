@@ -125,7 +125,8 @@ class CommandBuilder:
 def experiments(args):
     run_cmds = []
     cmdbuilder = CommandBuilder(args=args, hparams_dir='./hparams')
-    datasets = ['cora', 'pubmed', 'lastfm', 'facebook']
+    # datasets = ['cora', 'pubmed', 'lastfm', 'facebook']
+    datasets = ['facebook']
     
     # best steps from LPGNN
     steps ={'cora':     [16, 2],
@@ -160,7 +161,8 @@ def experiments(args):
 def top_k_experiments(args):
     run_cmds = []
     cmdbuilder = CommandBuilder(args=args, hparams_dir='./hparams')
-    datasets = ['cora', 'pubmed', 'lastfm', 'facebook']
+    # datasets = ['cora', 'pubmed', 'lastfm', 'facebook']
+    datasets = ['facebook']
 
     # best steps from LPGNN
     steps ={'cora':     [16, 2],
@@ -196,7 +198,8 @@ def top_k_experiments(args):
 def attack_experiments(args):
     run_cmds = []
     cmdbuilder = CommandBuilder(args=args, hparams_dir='./hparams')
-    datasets = ['cora', 'pubmed', 'lastfm', 'facebook']
+    # datasets = ['cora', 'pubmed', 'lastfm', 'facebook']
+    datasets = ['facebook']
 
     # best steps from LPGNN
     steps ={'cora':     [16, 2],
@@ -215,11 +218,11 @@ def attack_experiments(args):
             x_steps=steps[dataset][0],
             y_eps=[3],
             y_steps=steps[dataset][1],
-            e_eps=[0.1, 8, np.inf],
-            alpha=[0, 0.5, 1],
-            delta=[0],
+            e_eps=[0.1, 1.0, 2.0, 8.0, np.inf],
+            alpha=[0, 0.25, 0.5, 0.75, 1],
+            delta=[0, 0.25, 0.5, 0.75, 1],
             similarity=['cosine'],
-            pick_neighbor=['rr'],
+            pick_neighbor=['top'],
             forward_correction=True,
             learning_rate=CommandBuilder.BEST_VALUE,
             weight_decay=CommandBuilder.BEST_VALUE,
@@ -249,7 +252,7 @@ def main():
     parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
     parser, parser_create = JobManager.register_arguments(parser)
     parser.add_argument('-o', '--output-dir', type=str, default='./results', help="directory to store the results")
-    parser_create.add_argument('--device', help='desired device for training', choices=['cpu', 'cuda:0', 'cuda:1'], default='cuda:0')
+    parser_create.add_argument('--device', help='desired device for training', choices=['cpu', 'cuda:0', 'cuda:1', 'cuda:2', 'cuda:3'], default='cuda:0')
     parser_create.add_argument('--project', type=str, help='project name for wandb logging (omit to disable)')
     parser_create.add_argument('-s', '--seed', type=int, default=12345, help='initial random seed')
     parser_create.add_argument('-r', '--repeats', type=int, default=10, help="number of experiment iterations")
