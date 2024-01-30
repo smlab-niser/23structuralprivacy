@@ -99,8 +99,8 @@ class Trainer:
         existing_edges, non_existing_edges = get_edge_sets(data, random_order=True)
         non_sp_existing_edges, non_sp_non_existing_edges = get_edge_sets(non_sp_data, random_order=True)
 
-        print(existing_edges.size())
-        print(data.size()[0])
+        # print(existing_edges.size())
+        # print(data.size()[0])
 
         norm_existing = []
         norm_non_existing = []
@@ -122,6 +122,9 @@ class Trainer:
             perturbed_auc = auc(fpr, tpr)
             print('Perturbed auc =', perturbed_auc)
             print()
+
+        norm_existing = []
+        norm_non_existing = []
 
         # WRT original.
         with torch.no_grad():

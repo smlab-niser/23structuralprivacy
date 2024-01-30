@@ -12,7 +12,7 @@ from torch_geometric.transforms import Compose
 from datasets import load_dataset
 from models import NodeClassifier
 from trainer import Trainer
-from transforms import FeatureTransform, FeaturePerturbation, LabelPerturbation, PrivatizeStructure
+from transforms import FeatureTransform, FeaturePerturbation, LabelPerturbation, PrivatizeStructure, TwoHopRRBaseline
 from utils import print_args, WandbLogger, add_parameters_as_argument, \
     measure_runtime, from_args, str2bool, Enum, EnumAction, colored_text, bootstrap
 
@@ -73,7 +73,8 @@ def run(args):
                 from_args(FeatureTransform, args),
                 from_args(FeaturePerturbation, args),
                 from_args(LabelPerturbation, args),
-                from_args(PrivatizeStructure, args)
+                # from_args(PrivatizeStructure, args)
+                from_args(TwoHopRRBaseline, args)
             ])(data)
 
             # define model
@@ -140,6 +141,7 @@ def main():
     add_parameters_as_argument(FeaturePerturbation, group_perturb)
     add_parameters_as_argument(LabelPerturbation, group_perturb)
     add_parameters_as_argument(PrivatizeStructure, group_perturb)
+    add_parameters_as_argument(TwoHopRRBaseline, group_perturb)
 
     # model args
     group_model = init_parser.add_argument_group(f'model arguments')
