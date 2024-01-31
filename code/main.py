@@ -77,6 +77,9 @@ def run(args):
                 from_args(TwoHopRRBaseline, args)
             ])(data)
 
+            different_edges = (data.adj_t.to_dense() != non_sp_data.adj_t.to_dense()).sum()
+            print(f"{different_edges} edges have been changed!")
+
             # define model
             model = from_args(NodeClassifier, args, input_dim=data.num_features, num_classes=data.num_classes)
 

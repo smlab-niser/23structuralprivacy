@@ -150,6 +150,8 @@ class RandomizedResopnse:
         self.q = 1.0 / (math.exp(eps) + self.d - 1)  # Change.
         self.p = self.q * math.exp(eps)  # Stay same.
         self.eps = eps
+        # print(f"Prob of flipping: {self.q}")
+        # print(f"Prob of staying: {self.p}")
 
     def __call__(self, y):
         pr = y * self.p + (1 - y) * self.q
