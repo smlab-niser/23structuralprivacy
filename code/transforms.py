@@ -310,9 +310,9 @@ class TwoHopRRBaseline:
                 neighs_of_neighbor = nodepairs[nodepairs[:, 0] == neighbor, 1]
                 if neighs_of_neighbor.size(dim=0) != 1:
                     neighs_of_neighbor = torch.cat((neighs_of_neighbor[:neighs_of_neighbor[neighs_of_neighbor==node]], neighs_of_neighbor[neighs_of_neighbor[neighs_of_neighbor==node]+1:]))
-                # Remove neighbors from neigh of neighbors, to get non_neighbors.
-                non_neighbors.append(torch.from_numpy(np.setdiff1d(neighs_of_neighbor.numpy(),
-                                                                   neighbors.numpy())))
+                # Remove neighbors from neigh of neighbors, to get non_neighbors. Move to cpu (if necessary) and back.
+                non_neighbors.append(torch.from_numpy(np.setdiff1d(neighs_of_neighbor.cpu().numpy(),
+                                                                   neighbors.cpu().numpy())).to(dense_adj.device))
 
             if len(non_neighbors) > 0:
                 # break
