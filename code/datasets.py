@@ -78,6 +78,7 @@ class KarateClub(InMemoryDataset):
 
 supported_datasets = {
     'cora': partial(Planetoid, name='cora'),
+    'citeseer': partial(Planetoid, name='citeseer'),
     'pubmed': partial(Planetoid, name='pubmed'),
     'facebook': partial(KarateClub, name='facebook'),
     'lastfm': partial(KarateClub, name='lastfm', transform=FilterTopClass(10)),

@@ -196,13 +196,14 @@ def top_k_experiments(args):
 def attack_experiments(args):
     run_cmds = []
     cmdbuilder = CommandBuilder(args=args, hparams_dir='./hparams')
-    datasets = ['cora', 'pubmed', 'lastfm', 'facebook']
+    # datasets = ['cora', 'pubmed', 'lastfm', 'facebook']
+    datasets = ['lastfm']
 
     # best steps from LPGNN
-    steps ={'cora':     [16, 2],
-            'pubmed':   [16, 0],
-            'lastfm':   [16, 0],
-            'facebook': [4, 2]}
+    steps ={#'cora':     [16, 2]}
+            # 'pubmed':   [16, 0],
+            'lastfm':   [16, 0]}
+            # 'facebook': [4, 2]}
 
     for dataset in datasets:
         run_cmds += cmdbuilder.build(
@@ -210,13 +211,18 @@ def attack_experiments(args):
             dataset=dataset,
             feature='raw',
             mechanism='mbm',
-            model=['gcn', 'gat'],
+            # model=['gcn', 'gat', 'sage'],
+            model=['dir'],
+            # model=['sage'],
             x_eps=[3],
             x_steps=steps[dataset][0],
             y_eps=[3],
             y_steps=steps[dataset][1],
-            e_eps=[0.1, 8, np.inf],
-            alpha=[0, 0.5, 1],
+            e_eps=[0.1, 1, 2, 8, np.inf],
+            # e_eps=[0.01],
+            # alpha=[0, 0.25, 0.5, 0.75, 1],
+            alpha=[0],
+            # delta=[0, 0.1, 0.25, 0.5, 1.0],
             delta=[0],
             similarity=['cosine'],
             pick_neighbor=['rr'],

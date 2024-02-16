@@ -147,14 +147,26 @@ class AnalyticGaussian(Gaussian):
 class RandomizedResopnse:
     def __init__(self, eps, d):
         self.d = d
-        self.q = 1.0 / (math.exp(eps) + self.d - 1)
-        self.p = self.q * math.exp(eps)
+        self.q = 1.0 / (math.exp(eps) + self.d - 1)  # Change.
+        self.p = self.q * math.exp(eps)  # Stay same.
         self.eps = eps
+        # print(f"Prob of flipping: {self.q}")
+        # print(f"Prob of staying: {self.p}")
 
     def __call__(self, y):
         pr = y * self.p + (1 - y) * self.q
         out = torch.multinomial(pr, num_samples=1)
         return F.one_hot(out.squeeze(), num_classes=self.d)
+
+    def sample_binary_flips(self, num_samples):
+        """
+        Returns binary tensor of dim (num_samples,) where positions with a 1 indicate a flip.
+        """
+        return torch.multinomial(torch.tensor([self.p, self.q]),
+                                 num_samples=num_samples, replacement=True)
+
+    def perform_binary_flip(self, y):
+        return y ^ self.sample_binary_flips(num_samples=y.size()[0])
 
 
 supported_feature_mechanisms = {

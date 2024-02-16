@@ -4,6 +4,7 @@ from torch.optim import SGD, Adam
 from tqdm.auto import tqdm
 from sklearn.metrics import roc_curve, auc
 from datasets import get_edge_sets, compare_adjacency_matrices, generate_random_edge_sets
+import torch.nn.functional as F
 
 class Trainer:
     def __init__(
@@ -12,7 +13,7 @@ class Trainer:
             max_epochs: dict(help='maximum number of training epochs') = 100,
             learning_rate: dict(help='learning rate') = 0.01,
             weight_decay: dict(help='weight decay (L2 penalty)') = 0.0,
-            patience: dict(help='early-stopping patience window size') = 5,
+            patience: dict(help='early-stopping patience window size') = 0,
             device='cuda',
             logger=None,
     ):
@@ -84,6 +85,69 @@ class Trainer:
                self.model.perturbed_forward(features, adj).detach()) / influence
         # print(grad)
         return grad[u]
+
+
+    def get_posterior(self, data):
+        features, adj = data.x, data.adj_t
+        posterior = F.softmax(self.model.perturbed_forward(features, adj), dim=1)
+        return posterior
+
+
+    def baseline_attack(self, data, non_sp_data):
+        n_test = 500
+
+        existing_edges, non_existing_edges = get_edge_sets(data, random_order=True)
+        non_sp_existing_edges, non_sp_non_existing_edges = get_edge_sets(non_sp_data, random_order=True)
+
+        # print(existing_edges.size())
+        # print(data.size()[0])
+
+        norm_existing = []
+        norm_non_existing = []
+
+        # Private.
+        with torch.no_grad():
+            posterior = self.get_posterior(data)
+            nodelist = list(range(data.size()[0]))
+            mean = torch.mean(posterior[nodelist], dim=0)
+            for u, v in tqdm(existing_edges[:n_test]):
+                norm_existing.append((torch.dot(posterior[u] - mean, posterior[v] - mean) / torch.norm(posterior[u] - mean) / torch.norm(posterior[v] - mean)).item())
+            for u, v in tqdm(non_existing_edges[:n_test]):
+                norm_non_existing.append((torch.dot(posterior[u] - mean, posterior[v] - mean) / torch.norm(posterior[u] - mean) / torch.norm(posterior[v] - mean)).item())
+
+            y = [1] * len(norm_existing) + [0] * len(norm_non_existing)
+            pred = norm_existing + norm_non_existing
+            fpr, tpr, thresholds = roc_curve(y, pred)
+            print()
+            perturbed_auc = auc(fpr, tpr)
+            print('Perturbed auc =', perturbed_auc)
+            print()
+
+        norm_existing = []
+        norm_non_existing = []
+
+        # WRT original.
+        with torch.no_grad():
+            posterior = self.get_posterior(data)
+            nodelist = list(range(data.size()[0]))
+            mean = torch.mean(posterior[nodelist], dim=0)
+            for u, v in tqdm(non_sp_existing_edges[:n_test]):
+                norm_existing.append((torch.dot(posterior[u] - mean, posterior[v] - mean) / torch.norm(posterior[u] - mean) / torch.norm(posterior[v] - mean)).item())
+            for u, v in tqdm(non_sp_non_existing_edges[:n_test]):
+                norm_non_existing.append((torch.dot(posterior[u] - mean, posterior[v] - mean) / torch.norm(posterior[u] - mean) / torch.norm(posterior[v] - mean)).item())
+
+            y = [1] * len(norm_existing) + [0] * len(norm_non_existing)
+            pred = norm_existing + norm_non_existing
+            fpr, tpr, thresholds = roc_curve(y, pred)
+            print()
+            wrt_original_auc = auc(fpr, tpr)
+            print('Wrt original auc =', wrt_original_auc)
+            print()
+
+        return {"perturbed_auc": perturbed_auc, "original_auc": wrt_original_auc}
+
+
+
 
     def attack(self, data, non_sp_data):
         # perform some comparisons on the two dataset

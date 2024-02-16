@@ -12,7 +12,7 @@ from torch_geometric.transforms import Compose
 from datasets import load_dataset
 from models import NodeClassifier
 from trainer import Trainer
-from transforms import FeatureTransform, FeaturePerturbation, LabelPerturbation, PrivatizeStructure
+from transforms import FeatureTransform, FeaturePerturbation, LabelPerturbation, PrivatizeStructure, TwoHopRRBaseline
 from utils import print_args, WandbLogger, add_parameters_as_argument, \
     measure_runtime, from_args, str2bool, Enum, EnumAction, colored_text, bootstrap
 
@@ -74,7 +74,11 @@ def run(args):
                 from_args(FeaturePerturbation, args),
                 from_args(LabelPerturbation, args),
                 from_args(PrivatizeStructure, args)
+                # from_args(TwoHopRRBaseline, args)
             ])(data)
+
+            different_edges = (data.adj_t.to_dense() != non_sp_data.adj_t.to_dense()).sum()
+            print(f"{different_edges} edges have been changed!")
 
             # define model
             model = from_args(NodeClassifier, args, input_dim=data.num_features, num_classes=data.num_classes)
@@ -86,6 +90,7 @@ def run(args):
             # attack the model for link prediction
             if args.attack:
                 attack_metrics = trainer.attack(data, non_sp_data)
+                # attack_metrics = trainer.baseline_attack(data, non_sp_data)
                 attack_auc.append(attack_metrics)
             # print("ATTACK METRICS")
             # print(type(data))
@@ -139,6 +144,7 @@ def main():
     add_parameters_as_argument(FeaturePerturbation, group_perturb)
     add_parameters_as_argument(LabelPerturbation, group_perturb)
     add_parameters_as_argument(PrivatizeStructure, group_perturb)
+    add_parameters_as_argument(TwoHopRRBaseline, group_perturb)
 
     # model args
     group_model = init_parser.add_argument_group(f'model arguments')

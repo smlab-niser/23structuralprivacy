@@ -288,5 +288,86 @@ class PrivatizeStructure:
         return data
 
 
+class TwoHopRRBaseline:
+
+    def __init__(self,  e_eps: dict(help='privacy budget for structure perturbation',
+                                    type=float, option='-ee') = np.inf):
+        self.eps = e_eps
+    def localRandomizedResponse(self, data):
+        dense_adj = data.adj_t.to_dense()
+        nodepairs = dense_adj.nonzero()
+
+        rr = RandomizedResopnse(eps=self.eps, d=2)
+        number_added_edges = 0
+        number_removed_edges = 0
+
+        print("LOCAL RAND")
+        for node in range(dense_adj.shape[0]):  # x
+            # break
+            neighbors = nodepairs[nodepairs[:, 0] == node, 1]  # A, B, C
+            non_neighbors = []
+            for neighbor in neighbors:
+                neighs_of_neighbor = nodepairs[nodepairs[:, 0] == neighbor, 1]
+                if neighs_of_neighbor.size(dim=0) != 1:
+                    neighs_of_neighbor = torch.cat((neighs_of_neighbor[:neighs_of_neighbor[neighs_of_neighbor==node]], neighs_of_neighbor[neighs_of_neighbor[neighs_of_neighbor==node]+1:]))
+                # Remove neighbors from neigh of neighbors, to get non_neighbors. Move to cpu (if necessary) and back.
+                non_neighbors.append(torch.from_numpy(np.setdiff1d(neighs_of_neighbor.cpu().numpy(),
+                                                                   neighbors.cpu().numpy())).to(dense_adj.device))
+
+            if len(non_neighbors) > 0:
+                # break
+                # Getting all neighbors and non-neighbors and labelling them.
+                non_neighbors = torch.cat(non_neighbors, dim=0).unique()
+                neigh_flag = torch.ones(neighbors.size()[0], dtype=torch.int)
+                non_neigh_flag = torch.zeros(non_neighbors.size()[0], dtype=torch.int)
+                neighbor_list = torch.cat((neigh_flag, non_neigh_flag), dim=0)
+
+                # Performing edge flips and updating adjacency matrix.
+                flipped_neighbors = rr.perform_binary_flip(neighbor_list)
+                # neighdiff = len(neighbor_list) - (flipped_neighbors == neighbor_list).sum()
+                candidates = torch.cat((neighbors, non_neighbors), dim=0)
+                for i in range(len(candidates)):
+                    current = dense_adj[node, candidates[i]]
+                    next = flipped_neighbors[i]
+                    # dense_adj[node, candidates[i]] = flipped_neighbors[i]
+                    # dense_adj[node, candidates[i]] = next.item()
+                    if current != next:
+                        if current == 0:
+                            number_added_edges = number_added_edges + 1
+                        else:
+                            number_removed_edges = number_removed_edges + 1
+                    dense_adj[node, candidates[i]] = next
+
+            elif len(neighbors) > 0:
+                # Performing RR on neighbors only.
+                neighbor_list = torch.ones(neighbors.size()[0], dtype=torch.int)
+                flipped_neighbors = rr.perform_binary_flip(neighbor_list)
+                for i in range(len(neighbors)):
+                    dense_adj[node, neighbors[i]] = flipped_neighbors[i]
+            else:
+                pass  # Isolated node, so do nothing.
+
+        print(f"removed: {number_removed_edges}")
+        print(f"added: {number_added_edges}")
+        return dense_adj
+
+    def __call__(self, data):
+
+        # old_dense = data.adj_t.to_dense()
+
+        if self.eps != np.inf:
+            pert_adj = self.localRandomizedResponse(data)
+            data.edge_index = torch.stack(list(pert_adj.nonzero(as_tuple=True)), dim=1).permute(1, 0).long()
+            data = ToSparseTensor()(data)
+
+            # non_changed_edges = (old_dense == pert_adj).sum()
+            # total_edges = old_dense.size()[0]*old_dense.size()[1]
+
+            # diff = total_edges-non_changed_edges
+            # perc_diff = diff/total_edges
+
+        return data
+
+
 if __name__ == "__main__":
     print('hello')
