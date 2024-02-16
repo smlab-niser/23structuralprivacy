@@ -73,8 +73,8 @@ def run(args):
                 from_args(FeatureTransform, args),
                 from_args(FeaturePerturbation, args),
                 from_args(LabelPerturbation, args),
-                # from_args(PrivatizeStructure, args)
-                from_args(TwoHopRRBaseline, args)
+                from_args(PrivatizeStructure, args)
+                # from_args(TwoHopRRBaseline, args)
             ])(data)
 
             different_edges = (data.adj_t.to_dense() != non_sp_data.adj_t.to_dense()).sum()
@@ -89,8 +89,8 @@ def run(args):
 
             # attack the model for link prediction
             if args.attack:
-                # attack_metrics = trainer.attack(data, non_sp_data)
-                attack_metrics = trainer.baseline_attack(data, non_sp_data)
+                attack_metrics = trainer.attack(data, non_sp_data)
+                # attack_metrics = trainer.baseline_attack(data, non_sp_data)
                 attack_auc.append(attack_metrics)
             # print("ATTACK METRICS")
             # print(type(data))
