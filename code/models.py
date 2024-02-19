@@ -1,10 +1,13 @@
+import copy
+
 import torch
 import torch.nn.functional as F
+from torch import Tensor
 from torch_geometric.nn.conv.gcn_conv import gcn_norm
 from torch_geometric.utils import accuracy as accuracy_1d
 from torch.nn import Dropout, SELU
 from torch_geometric.nn import MessagePassing, SAGEConv, GCNConv, GATConv
-from torch_sparse import matmul
+from torch_sparse import matmul, SparseTensor
 
 
 class KProp(MessagePassing):
@@ -81,16 +84,107 @@ class GraphSAGE(GNN):
         self.conv2 = SAGEConv(in_channels=hidden_dim, out_channels=output_dim, normalize=False, root_weight=True)
 
 
+class DirGNNConv(torch.nn.Module):
+    r"""A generic wrapper for computing graph convolution on directed
+    graphs as described in the `"Edge Directionality Improves Learning on
+    Heterophilic Graphs" <https://arxiv.org/abs/2305.10498>`_ paper.
+    :class:`DirGNNConv` will pass messages both from source nodes to target
+    nodes and from target nodes to source nodes.
+
+    Args:
+        conv (MessagePassing): The underlying
+            :class:`~torch_geometric.nn.conv.MessagePassing` layer to use.
+        alpha (float, optional): The alpha coefficient used to weight the
+            aggregations of in- and out-edges as part of a convex combination.
+            (default: :obj:`0.5`)
+        root_weight (bool, optional): If set to :obj:`True`, the layer will add
+            transformed root node features to the output.
+            (default: :obj:`True`)
+    """
+
+    def __init__(
+            self,
+            conv: MessagePassing,
+            alpha: float = 0.5,
+            root_weight: bool = True,
+    ):
+        super().__init__()
+
+        self.alpha = alpha
+        self.root_weight = root_weight
+
+        self.conv_in = copy.deepcopy(conv)
+        self.conv_out = copy.deepcopy(conv)
+
+        if hasattr(conv, 'add_self_loops'):
+            self.conv_in.add_self_loops = False
+            self.conv_out.add_self_loops = False
+        if hasattr(conv, 'root_weight'):
+            self.conv_in.root_weight = False
+            self.conv_out.root_weight = False
+
+        if root_weight:
+            self.lin = torch.nn.Linear(conv.in_channels, conv.out_channels)
+        else:
+            self.lin = None
+
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        r"""Resets all learnable parameters of the module."""
+        self.conv_in.reset_parameters()
+        self.conv_out.reset_parameters()
+        if self.lin is not None:
+            self.lin.reset_parameters()
+
+    def forward(self, x: Tensor, edge_index: Tensor) -> Tensor:
+        """"""  # noqa: D419
+        x_in = self.conv_in(x, edge_index)
+
+        # TODO: complains about sparse stuff. Note that I've bee
+        # Original was simply:
+        # x_out = self.conv_out(x, edge_index.flip([0]))
+        # from: https://pytorch-geometric.readthedocs.io/en/latest/_modules/torch_geometric/nn/conv/dir_gnn_conv.html#DirGNNConv
+
+        ### Trying to fix the complaints of the original x_out ###
+        if isinstance(edge_index, SparseTensor):
+            # Make dense, flip, make sparse again.
+            dense_index = edge_index.to_dense()
+            flipped_edge = dense_index.flip([0])
+            flipped_edge = flipped_edge.to_sparse()
+            x_out = self.conv_out(x, flipped_edge)
+        else:
+            x_out = self.conv_out(x, edge_index)
+        ### Trying to fix the complaints of the original x_out ###
+
+        out = self.alpha * x_out + (1 - self.alpha) * x_in
+
+        if self.root_weight:
+            out = out + self.lin(x)
+
+        return out
+
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}({self.conv_in}, alpha={self.alpha})'
+
+
+class DirGNN(GNN):
+    def __init__(self, input_dim, output_dim, hidden_dim, dropout):
+        super().__init__(dropout)
+        self.conv1 = DirGNNConv(conv=GCNConv(input_dim, hidden_dim))
+        self.conv2 = DirGNNConv(conv=GCNConv(input_dim, hidden_dim))
+
+
 class NodeClassifier(torch.nn.Module):
     def __init__(self,
                  input_dim,
                  num_classes,
-                 model:                 dict(help='backbone GNN model', choices=['gcn', 'sage', 'gat']) = 'sage',
-                 hidden_dim:            dict(help='dimension of the hidden layers') = 16,
-                 dropout:               dict(help='dropout rate (between zero and one)') = 0.0,
-                 x_steps:               dict(help='KProp step parameter for features', option='-kx') = 0,
-                 y_steps:               dict(help='KProp step parameter for labels', option='-ky') = 0,
-                 forward_correction:    dict(help='applies forward loss correction', option='--forward') = True,
+                 model: dict(help='backbone GNN model', choices=['gcn', 'sage', 'gat', 'dir']) = 'sage',
+                 hidden_dim: dict(help='dimension of the hidden layers') = 16,
+                 dropout: dict(help='dropout rate (between zero and one)') = 0.0,
+                 x_steps: dict(help='KProp step parameter for features', option='-kx') = 0,
+                 y_steps: dict(help='KProp step parameter for labels', option='-ky') = 0,
+                 forward_correction: dict(help='applies forward loss correction', option='--forward') = True,
                  ):
         super().__init__()
 
@@ -98,7 +192,7 @@ class NodeClassifier(torch.nn.Module):
         self.y_prop = KProp(steps=y_steps, aggregator='add', add_self_loops=False, normalize=True, cached=False,
                             transform=torch.nn.Softmax(dim=1))
 
-        self.gnn = {'gcn': GCN, 'sage': GraphSAGE, 'gat': GAT}[model](
+        self.gnn = {'gcn': GCN, 'sage': GraphSAGE, 'gat': GAT, 'dir': DirGNN}[model](
             input_dim=input_dim,
             output_dim=num_classes,
             hidden_dim=hidden_dim,
@@ -113,9 +207,9 @@ class NodeClassifier(torch.nn.Module):
         x = self.x_prop(x, adj_t)
         x = self.gnn(x, adj_t)
 
-        p_y_x = F.softmax(x, dim=1)                                                         # P(y|x')
-        p_yp_x = torch.matmul(p_y_x, data.T) if self.forward_correction else p_y_x          # P(y'|x')
-        p_yt_x = self.y_prop(p_yp_x, data.adj_t)                                            # P(y~|x')
+        p_y_x = F.softmax(x, dim=1)  # P(y|x')
+        p_yp_x = torch.matmul(p_y_x, data.T) if self.forward_correction else p_y_x  # P(y'|x')
+        p_yt_x = self.y_prop(p_yp_x, data.adj_t)  # P(y~|x')
 
         return p_y_x, p_yp_x, p_yt_x
 
@@ -125,7 +219,6 @@ class NodeClassifier(torch.nn.Module):
         x = self.gnn(features, adj_t)
 
         return F.softmax(x, dim=1)
-
 
     def training_step(self, data):
         p_y_x, p_yp_x, p_yt_x = self(data)  # Passing test labels too?
