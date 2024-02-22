@@ -6,8 +6,10 @@ from torch import Tensor
 from torch_geometric.nn.conv.gcn_conv import gcn_norm
 from torch_geometric.utils import accuracy as accuracy_1d
 from torch.nn import Dropout, SELU
-from torch_geometric.nn import MessagePassing, SAGEConv, GCNConv, GATConv
+from torch_geometric.nn import MessagePassing, SAGEConv, GCNConv, GATConv, TransformerConv, GATv2Conv, GraphConv
 from torch_sparse import matmul, SparseTensor
+from torch_geometric.transforms import ToSparseTensor
+from torch_geometric.utils import to_dense_adj
 
 
 class KProp(MessagePassing):
@@ -84,6 +86,27 @@ class GraphSAGE(GNN):
         self.conv2 = SAGEConv(in_channels=hidden_dim, out_channels=output_dim, normalize=False, root_weight=True)
 
 
+class GraphTransformer(GNN):
+    def __init__(self, input_dim, output_dim, hidden_dim, dropout):
+        super().__init__(dropout)
+        self.conv1 = TransformerConv(in_channels=input_dim, out_channels=hidden_dim, root_weight=True)
+        self.conv2 = TransformerConv(in_channels=hidden_dim, out_channels=output_dim, root_weight=True)
+        
+        
+class GAT2(GNN):
+    def __init__(self, input_dim, output_dim, hidden_dim, dropout):
+        super().__init__(dropout)
+        self.conv1 = GATv2Conv(in_channels=input_dim, out_channels=hidden_dim)
+        self.conv2 = GATv2Conv(in_channels=hidden_dim, out_channels=output_dim)
+
+
+class GraphConvNN(GNN):
+    def __init__(self, input_dim, output_dim, hidden_dim, dropout):
+        super().__init__(dropout)
+        self.conv1 = GraphConv(in_channels=input_dim, out_channels=hidden_dim)
+        self.conv2 = GraphConv(in_channels=hidden_dim, out_channels=output_dim)
+
+
 class DirGNNConv(torch.nn.Module):
     r"""A generic wrapper for computing graph convolution on directed
     graphs as described in the `"Edge Directionality Improves Learning on
@@ -140,7 +163,8 @@ class DirGNNConv(torch.nn.Module):
     def forward(self, x: Tensor, edge_index: Tensor) -> Tensor:
         """"""  # noqa: D419
         x_in = self.conv_in(x, edge_index)
-
+        
+        
         # TODO: complains about sparse stuff. Note that I've bee
         # Original was simply:
         # x_out = self.conv_out(x, edge_index.flip([0]))
@@ -150,14 +174,18 @@ class DirGNNConv(torch.nn.Module):
         if isinstance(edge_index, SparseTensor):
             # Make dense, flip, make sparse again.
             dense_index = edge_index.to_dense()
+            dense_index = torch.stack(list(dense_index.nonzero(as_tuple=True)), dim=1).permute(1, 0).long()
             flipped_edge = dense_index.flip([0])
+            flipped_edge = to_dense_adj(flipped_edge).squeeze(0)
             flipped_edge = flipped_edge.to_sparse()
+            flipped_edge = ToSparseTensor()(flipped_edge)                     
             x_out = self.conv_out(x, flipped_edge)
         else:
             x_out = self.conv_out(x, edge_index)
         ### Trying to fix the complaints of the original x_out ###
 
         out = self.alpha * x_out + (1 - self.alpha) * x_in
+        
 
         if self.root_weight:
             out = out + self.lin(x)
@@ -179,7 +207,7 @@ class NodeClassifier(torch.nn.Module):
     def __init__(self,
                  input_dim,
                  num_classes,
-                 model: dict(help='backbone GNN model', choices=['gcn', 'sage', 'gat', 'dir']) = 'sage',
+                 model: dict(help='backbone GNN model', choices=['gcn', 'sage', 'gat', 'dir', 'gt', 'gat2', 'graphconv']) = 'sage',
                  hidden_dim: dict(help='dimension of the hidden layers') = 16,
                  dropout: dict(help='dropout rate (between zero and one)') = 0.0,
                  x_steps: dict(help='KProp step parameter for features', option='-kx') = 0,
@@ -192,7 +220,7 @@ class NodeClassifier(torch.nn.Module):
         self.y_prop = KProp(steps=y_steps, aggregator='add', add_self_loops=False, normalize=True, cached=False,
                             transform=torch.nn.Softmax(dim=1))
 
-        self.gnn = {'gcn': GCN, 'sage': GraphSAGE, 'gat': GAT, 'dir': DirGNN}[model](
+        self.gnn = {'gcn': GCN, 'sage': GraphSAGE, 'gat': GAT, 'dir': DirGNN, 'gt': GraphTransformer, 'gat2': GAT2, 'graphconv': GraphConvNN}[model](
             input_dim=input_dim,
             output_dim=num_classes,
             hidden_dim=hidden_dim,
