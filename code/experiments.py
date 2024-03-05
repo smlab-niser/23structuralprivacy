@@ -199,12 +199,12 @@ def attack_experiments(args):
     run_cmds = []
     cmdbuilder = CommandBuilder(args=args, hparams_dir='./hparams')
     # datasets = ['cora', 'pubmed', 'lastfm', 'facebook']
-    datasets = ['cora']
+    datasets = ['cora', 'pubmed', 'lastfm']
 
     # best steps from LPGNN
-    steps ={'cora':     [16, 2]}
-            # 'pubmed':   [16, 0],
-            # 'lastfm':   [16, 0]}
+    steps ={'cora':     [16, 2],
+            'pubmed':   [16, 0],
+            'lastfm':   [16, 0]}
             # 'facebook': [4, 2]}
 
     for dataset in datasets:
@@ -215,7 +215,7 @@ def attack_experiments(args):
             mechanism='mbm',
             # model=['gcn', 'gat', 'sage'],
             # model=['gt', 'gcn2', 'gine'],
-            model=['gat2'],
+            model=['gt'],
             x_eps=[3],
             x_steps=steps[dataset][0],
             y_eps=[3],
