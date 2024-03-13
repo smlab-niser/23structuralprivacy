@@ -200,12 +200,13 @@ def attack_experiments(args):
     cmdbuilder = CommandBuilder(args=args, hparams_dir='./hparams')
     # datasets = ['cora', 'pubmed', 'lastfm', 'facebook']
     datasets = ['cora', 'pubmed', 'lastfm']
+    # datasets = ['facebook']
 
     # best steps from LPGNN
     steps ={'cora':     [16, 2],
             'pubmed':   [16, 0],
-            'lastfm':   [16, 0]}
-            # 'facebook': [4, 2]}
+            'lastfm':   [16, 0],
+            'facebook': [4, 2]}
 
     for dataset in datasets:
         run_cmds += cmdbuilder.build(
@@ -214,8 +215,8 @@ def attack_experiments(args):
             feature='raw',
             mechanism='mbm',
             # model=['gcn', 'gat', 'sage'],
-            # model=['gt', 'gcn2', 'gine'],
-            model=['gt'],
+            model=['gt', 'gat2', 'graphconv'],
+            # model=['gat2'],
             x_eps=[3],
             x_steps=steps[dataset][0],
             y_eps=[3],
@@ -224,7 +225,7 @@ def attack_experiments(args):
             alpha=[0, 0.25, 0.5, 0.75, 1],
             delta=[0, 0.25, 0.5, 0.75, 1],
             similarity=['cosine'],
-            pick_neighbor=['top'],
+            pick_neighbor=['rr'],
             forward_correction=True,
             learning_rate=CommandBuilder.BEST_VALUE,
             weight_decay=CommandBuilder.BEST_VALUE,
