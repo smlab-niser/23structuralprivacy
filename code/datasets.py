@@ -3,7 +3,7 @@ from functools import partial
 import pandas as pd
 import torch
 from torch_geometric.data import Data, InMemoryDataset, download_url
-from torch_geometric.datasets import Planetoid
+from torch_geometric.datasets import Planetoid, WebKB, WikipediaNetwork
 from torch_geometric.transforms import ToSparseTensor, RandomNodeSplit
 from torch_geometric.utils import to_undirected
 
@@ -77,6 +77,8 @@ class KarateClub(InMemoryDataset):
 
 
 supported_datasets = {
+    'cornell': partial(WebKB, name='cornell'),
+    'chameleon': partial(WikipediaNetwork, name='chameleon'),
     'cora': partial(Planetoid, name='cora'),
     'citeseer': partial(Planetoid, name='citeseer'),
     'pubmed': partial(Planetoid, name='pubmed'),

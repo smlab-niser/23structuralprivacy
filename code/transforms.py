@@ -234,8 +234,11 @@ class PrivatizeStructure:
             neighbors = nodepairs[nodepairs[:, 0]==node, 1] # A, B, C
             for neighbor in neighbors:
                 neighs_of_neighbor = nodepairs[nodepairs[:, 0]==neighbor, 1]
-                if neighs_of_neighbor.size(dim=0) != 1:
-                    neighs_of_neighbor = torch.cat((neighs_of_neighbor[:neighs_of_neighbor[neighs_of_neighbor==node]], neighs_of_neighbor[neighs_of_neighbor[neighs_of_neighbor==node]+1:]))
+                # print(neighbor)
+                if neighs_of_neighbor.size(dim=0) > 1:
+                    nn = neighs_of_neighbor[neighs_of_neighbor==node]
+                    if len(nn) > 0:
+                        neighs_of_neighbor = torch.cat((neighs_of_neighbor[:neighs_of_neighbor[neighs_of_neighbor==node]], neighs_of_neighbor[neighs_of_neighbor[neighs_of_neighbor==node]+1:]))
 
                     if self.pick_neighbor == 'top':
                         if neighs_of_neighbor.shape[0] - torch.count_nonzero(sim[neighbor, neighs_of_neighbor]) == neighs_of_neighbor.shape[0]:
@@ -309,7 +312,9 @@ class TwoHopRRBaseline:
             for neighbor in neighbors:
                 neighs_of_neighbor = nodepairs[nodepairs[:, 0] == neighbor, 1]
                 if neighs_of_neighbor.size(dim=0) != 1:
-                    neighs_of_neighbor = torch.cat((neighs_of_neighbor[:neighs_of_neighbor[neighs_of_neighbor==node]], neighs_of_neighbor[neighs_of_neighbor[neighs_of_neighbor==node]+1:]))
+                    nn = neighs_of_neighbor[neighs_of_neighbor==node]
+                    if len(nn) > 0:
+                        neighs_of_neighbor = torch.cat((neighs_of_neighbor[:neighs_of_neighbor[neighs_of_neighbor==node]], neighs_of_neighbor[neighs_of_neighbor[neighs_of_neighbor==node]+1:]))
                 # Remove neighbors from neigh of neighbors, to get non_neighbors. Move to cpu (if necessary) and back.
                 non_neighbors.append(torch.from_numpy(np.setdiff1d(neighs_of_neighbor.cpu().numpy(),
                                                                    neighbors.cpu().numpy())).to(dense_adj.device))
